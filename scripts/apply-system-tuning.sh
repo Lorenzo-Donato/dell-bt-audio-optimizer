@@ -3,7 +3,7 @@
 # Script: apply-system-tuning.sh
 # Finalidade: Implantação de regras permanentes de Kernel (modprobe) e UDEV
 # Requisitos: Privilégios de Superusuário (Root)
-# Diretrizes: Bash strict mode (set -euo pipefail), idempotência total
+# Diretrizes: Bash strict mode (set -euo pipefail), descoberta dinâmica e idempotência
 # ==============================================================================
 
 set -euo pipefail
@@ -12,9 +12,6 @@ readonly SCRIPT_NAME="$(basename "$0")"
 readonly MODPROBE_BTUSB="/etc/modprobe.d/btusb.conf"
 readonly MODPROBE_RTW88="/etc/modprobe.d/rtw88.conf"
 readonly UDEV_RULE_FILE="/etc/udev/rules.d/50-bluetooth-realtek.rules"
-
-readonly REALTEK_VENDOR="0bda"
-readonly REALTEK_BT_PRODUCT="c829"
 
 # ------------------------------------------------------------------------------
 # Funções Utilitárias de Logging
@@ -43,6 +40,35 @@ assert_root() {
 }
 
 # ------------------------------------------------------------------------------
+# Descoberta Dinâmica de Hardware Bluetooth
+# ------------------------------------------------------------------------------
+discover_bluetooth_ids() {
+    BT_VENDOR="0bda"
+    BT_PRODUCT="c829"
+
+    for dev in /sys/bus/usb/devices/*; do
+        if [ -f "${dev}/idVendor" ] && [ -f "${dev}/idProduct" ]; then
+            for iface in "${dev}"/*:*; do
+                if [ -f "${iface}/bInterfaceClass" ]; then
+                    local cls sub proto
+                    cls="$(cat "${iface}/bInterfaceClass" 2>/dev/null || true)"
+                    sub="$(cat "${iface}/bInterfaceSubClass" 2>/dev/null || true)"
+                    proto="$(cat "${iface}/bInterfaceProtocol" 2>/dev/null || true)"
+                    if [ "${cls}" = "e0" ] && [ "${sub}" = "01" ] && [ "${proto}" = "01" ]; then
+                        BT_VENDOR="$(cat "${dev}/idVendor")"
+                        BT_PRODUCT="$(cat "${dev}/idProduct")"
+                        log_info "Detectado rádio Bluetooth USB dinamicamente: ${BT_VENDOR}:${BT_PRODUCT}"
+                        return 0
+                    fi
+                fi
+            done
+        fi
+    done
+
+    log_info "Utilizando identificadores de contingência (Realtek): ${BT_VENDOR}:${BT_PRODUCT}"
+}
+
+# ------------------------------------------------------------------------------
 # 1. Configuração de Módulos do Kernel (modprobe.d)
 # ------------------------------------------------------------------------------
 configure_kernel_modules() {
@@ -55,7 +81,7 @@ EOF
 
     log_info "Gravando parâmetros do módulo rtw88 (Wi-Fi/Coexistência) em ${MODPROBE_RTW88}..."
     cat << 'EOF' > "${MODPROBE_RTW88}"
-# Previne suspensão agressiva da placa combo Realtek RTL8821CE
+# Previne suspensão agressiva da placa combo Realtek
 options rtw88_pci disable_aspm=y
 options rtw88_core disable_lps_deep=y
 EOF
@@ -67,10 +93,10 @@ EOF
 # 2. Configuração de Regras de UDEV
 # ------------------------------------------------------------------------------
 configure_udev_rules() {
-    log_info "Criando regra UDEV em ${UDEV_RULE_FILE}..."
+    log_info "Criando regra UDEV em ${UDEV_RULE_FILE} para ${BT_VENDOR}:${BT_PRODUCT}..."
     cat << EOF > "${UDEV_RULE_FILE}"
-# Desativa economia de energia em tempo de execução para Realtek Bluetooth (${REALTEK_VENDOR}:${REALTEK_BT_PRODUCT})
-ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="${REALTEK_VENDOR}", ATTR{idProduct}=="${REALTEK_BT_PRODUCT}", ATTR{power/control}="on"
+# Desativa economia de energia em tempo de execução para Bluetooth USB (${BT_VENDOR}:${BT_PRODUCT})
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="${BT_VENDOR}", ATTR{idProduct}=="${BT_PRODUCT}", ATTR{power/control}="on"
 EOF
 
     log_info "Recarregando regras do daemon udev..."
@@ -94,7 +120,7 @@ enforce_sysfs_runtime_power() {
             v="$(cat "${dev_dir}/idVendor" 2>/dev/null || true)"
             p="$(cat "${dev_dir}/idProduct" 2>/dev/null || true)"
 
-            if [ "${v}" = "${REALTEK_VENDOR}" ] && [ "${p}" = "${REALTEK_BT_PRODUCT}" ]; then
+            if [ "${v}" = "${BT_VENDOR}" ] && [ "${p}" = "${BT_PRODUCT}" ]; then
                 local pctrl="${dev_dir}/power/control"
                 if [ -w "${pctrl}" ]; then
                     echo "on" > "${pctrl}"
@@ -106,7 +132,7 @@ enforce_sysfs_runtime_power() {
     done
 
     if [ "${matched}" -eq 0 ]; then
-        log_info "Dispositivo ${REALTEK_VENDOR}:${REALTEK_BT_PRODUCT} será ajustado automaticamente na próxima conexão."
+        log_info "Dispositivo ${BT_VENDOR}:${BT_PRODUCT} será ajustado automaticamente na próxima conexão."
     fi
 }
 
@@ -114,8 +140,9 @@ enforce_sysfs_runtime_power() {
 # Entrypoint
 # ------------------------------------------------------------------------------
 main() {
-    log_info "=== Aplicando Otimizações de Kernel e UDEV para Realtek Bluetooth ==="
+    log_info "=== Aplicando Otimizações de Kernel e UDEV para Bluetooth ==="
     assert_root
+    discover_bluetooth_ids
     configure_kernel_modules
     configure_udev_rules
     enforce_sysfs_runtime_power

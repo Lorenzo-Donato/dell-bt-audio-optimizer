@@ -66,13 +66,13 @@ deploy_wireplumber_rules() {
 
     cat << 'EOF' > "${TARGET_CONFIG}"
 # =====================================================================
-# Configuração de Alta Estabilidade Bluetooth - Dell Realtek + JBL Wave Beam 2
+# Configuração de Alta Estabilidade Bluetooth - Combo Wi-Fi/BT + Fones TWS
 # Gerada automaticamente por bt-dell-audio / quick-fix.sh
 # =====================================================================
 
 wireplumber.settings = {
   # Desativa troca automática para perfil de headset (mono 8kHz).
-  # Evita que Steam ou navegadores degradem o som para qualidade de telefone.
+  # Evita que navegadores, jogos ou apps de voz degradem o som para qualidade de telefone.
   bluetooth.autoswitch-to-headset-profile = false
 }
 
@@ -86,19 +86,19 @@ monitor.bluez.rules = [
     actions = {
       update-props = {
         # CRUCIAL: Desativa Volume Absoluto de Hardware (AVRCP).
-        # Fones JBL possuem falha crônica no DSP ao sincronizar ganho de hardware.
-        # Desativar isso elimina 100% as quedas abruptas de volume e ganho!
+        # Fones TWS possuem falha crônica no DSP ao sincronizar ganho de hardware.
+        # Desativar isso elimina quedas abruptas de volume e ganho!
         bluez5.enable-hw-volume = false
 
         # Desativa codec SBC-XQ com bitrate excessivo (~500kbps) que congestiona
-        # a antena 1x1 compartilhada do RTL8821CE com o Wi-Fi.
+        # antenas compartilhadas 1x1 com Wi-Fi.
         bluez5.enable-sbc-xq = false
 
         # Prioriza codecs estáveis (SBC e AAC).
         bluez5.codecs = [ sbc aac ]
 
         # Restringe o dispositivo ao papel de saída estéreo de alta fidelidade (A2DP).
-        # Como o microfone principal é o Fifine USB, não criamos canal duplex com o fone.
+        # Previne abertura acidental de canais duplex degradados de voz.
         bluez5.roles = [ a2dp_sink ]
 
         # Desativa suspensão por inatividade do nó Bluetooth para prevenir estalos
