@@ -1,0 +1,70 @@
+use std::fs;
+use std::process::Command;
+use crate::config::constants::paths;
+use crate::config::templates::{MODPROBE_BTUSB_CONF, MODPROBE_RTW88_CONF, UDEV_BLUETOOTH_RULES};
+use crate::domain::{AppError, AppResult};
+use crate::hardware::usb;
+
+pub fn is_running_as_root() -> bool {
+    if let Ok(status) = fs::read_to_string(paths::PROC_SELF_STATUS_FILE) {
+        for line in status.lines() {
+            if line.starts_with("Uid:") {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if let Some(uid) = parts.get(1) {
+                    return *uid == "0";
+                }
+            }
+        }
+    }
+    false
+}
+
+pub fn apply_system_configurations() -> AppResult<()> {
+    if !is_running_as_root() {
+        return Err(AppError::PermissionDenied);
+    }
+
+    // 1. Write modprobe files
+    fs::write(paths::MODPROBE_BTUSB_PATH, MODPROBE_BTUSB_CONF).map_err(|e| AppError::Io {
+        path: paths::MODPROBE_BTUSB_PATH.into(),
+        source: e,
+    })?;
+
+    fs::write(paths::MODPROBE_RTW88_PATH, MODPROBE_RTW88_CONF).map_err(|e| AppError::Io {
+        path: paths::MODPROBE_RTW88_PATH.into(),
+        source: e,
+    })?;
+
+    // 2. Write udev rule
+    fs::write(paths::UDEV_RULE_PATH, UDEV_BLUETOOTH_RULES).map_err(|e| AppError::Io {
+        path: paths::UDEV_RULE_PATH.into(),
+        source: e,
+    })?;
+
+    // 3. Immediately enforce power/control='on' on active device
+    if let Some(dev) = usb::find_realtek_bluetooth_device() {
+        let _ = usb::set_usb_power_control_on(&dev.sysfs_path);
+    }
+
+    // 4. Reload udev rules
+    let _ = Command::new("udevadm").args(["control", "--reload-rules"]).status();
+    let _ = Command::new("udevadm").args(["trigger"]).status();
+
+    Ok(())
+}
+
+#[allow(dead_code)]
+pub fn rollback_system_configurations() -> AppResult<()> {
+    if !is_running_as_root() {
+        return Err(AppError::PermissionDenied);
+    }
+
+    let _ = fs::remove_file(paths::MODPROBE_BTUSB_PATH);
+    let _ = fs::remove_file(paths::MODPROBE_RTW88_PATH);
+    let _ = fs::remove_file(paths::UDEV_RULE_PATH);
+
+    let _ = Command::new("udevadm").args(["control", "--reload-rules"]).status();
+    let _ = Command::new("udevadm").args(["trigger"]).status();
+
+    Ok(())
+}
