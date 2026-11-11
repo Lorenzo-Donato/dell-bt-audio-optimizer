@@ -21,3 +21,17 @@ pub fn read_kernel_version() -> String {
     }
     "Kernel Desconhecido".to_string()
 }
+
+pub fn is_running_as_root() -> bool {
+    if let Ok(status) = fs::read_to_string(paths::PROC_SELF_STATUS_FILE) {
+        for line in status.lines() {
+            if line.starts_with("Uid:") {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if let Some(uid) = parts.get(1) {
+                    return *uid == "0";
+                }
+            }
+        }
+    }
+    false
+}

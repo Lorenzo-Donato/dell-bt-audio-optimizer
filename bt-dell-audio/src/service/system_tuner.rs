@@ -3,24 +3,10 @@ use std::process::Command;
 use crate::config::constants::paths;
 use crate::config::templates::{MODPROBE_BTUSB_CONF, MODPROBE_RTW88_CONF, UDEV_BLUETOOTH_RULES};
 use crate::domain::{AppError, AppResult};
-use crate::hardware::usb;
-
-pub fn is_running_as_root() -> bool {
-    if let Ok(status) = fs::read_to_string(paths::PROC_SELF_STATUS_FILE) {
-        for line in status.lines() {
-            if line.starts_with("Uid:") {
-                let parts: Vec<&str> = line.split_whitespace().collect();
-                if let Some(uid) = parts.get(1) {
-                    return *uid == "0";
-                }
-            }
-        }
-    }
-    false
-}
+use crate::hardware::{os, usb};
 
 pub fn apply_system_configurations() -> AppResult<()> {
-    if !is_running_as_root() {
+    if !os::is_running_as_root() {
         return Err(AppError::PermissionDenied);
     }
 
@@ -46,16 +32,16 @@ pub fn apply_system_configurations() -> AppResult<()> {
         let _ = usb::set_usb_power_control_on(&dev.sysfs_path);
     }
 
-    // 4. Reload udev rules
+    // 4. Reload udev rules specifically for USB subsystem (airbag against full-system bus stalls)
     let _ = Command::new("udevadm").args(["control", "--reload-rules"]).status();
-    let _ = Command::new("udevadm").args(["trigger"]).status();
+    let _ = Command::new("udevadm").args(["trigger", "--subsystem-match=usb"]).status();
 
     Ok(())
 }
 
 #[allow(dead_code)]
 pub fn rollback_system_configurations() -> AppResult<()> {
-    if !is_running_as_root() {
+    if !os::is_running_as_root() {
         return Err(AppError::PermissionDenied);
     }
 
@@ -64,7 +50,7 @@ pub fn rollback_system_configurations() -> AppResult<()> {
     let _ = fs::remove_file(paths::UDEV_RULE_PATH);
 
     let _ = Command::new("udevadm").args(["control", "--reload-rules"]).status();
-    let _ = Command::new("udevadm").args(["trigger"]).status();
+    let _ = Command::new("udevadm").args(["trigger", "--subsystem-match=usb"]).status();
 
     Ok(())
 }
