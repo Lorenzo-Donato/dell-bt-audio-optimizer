@@ -1,0 +1,12 @@
+[Unit]
+Description=Dell Realtek Bluetooth Audio Sentinel & Optimizer
+After=pipewire.service wireplumber.service
+
+[Service]
+Type=simple
+ExecStart={{EXEC_PATH}} daemon
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

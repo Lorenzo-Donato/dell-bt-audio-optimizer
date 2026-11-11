@@ -8,7 +8,7 @@ mod ui;
 
 use clap::{Parser, Subcommand};
 use colored::*;
-use service::{fixer, rollback, sentinel, system_tuner};
+use service::{fixer, installer, rollback, sentinel, system_tuner};
 use ui::prompts;
 
 #[derive(Parser)]
@@ -175,47 +175,14 @@ fn handle_systune(auto_yes: bool) {
 fn handle_install_service() {
     println!("{}", "===> Instalando unidade do Systemd para inicialização no login...".cyan().bold());
 
-    let home = match std::env::var("HOME") {
-        Ok(h) => h,
-        Err(_) => {
-            eprintln!("{}", "Erro: Variável HOME não encontrada.".red());
+    match installer::install_user_service() {
+        Ok(unit_path) => {
+            println!("  {} Unidade systemd criada em: {}", "✓".green(), unit_path.display());
+            println!("  {} Serviço ativado e rodando em segundo plano!", "✓".green().bold());
+        }
+        Err(err) => {
+            eprintln!("{} {}", "Erro ao instalar serviço systemd:".red().bold(), err);
             std::process::exit(1);
         }
-    };
-
-    let service_dir = std::path::PathBuf::from(home).join(".config/systemd/user");
-    let _ = std::fs::create_dir_all(&service_dir);
-
-    let current_exe = std::env::current_exe()
-        .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_else(|_| "bt-dell-audio".to_string());
-
-    let unit_content = format!(
-        r#"[Unit]
-Description=Dell Realtek Bluetooth Audio Sentinel & Optimizer
-After=pipewire.service wireplumber.service
-
-[Service]
-Type=simple
-ExecStart={} daemon
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=default.target
-"#,
-        current_exe
-    );
-
-    let unit_path = service_dir.join("bt-dell-audio.service");
-    if let Err(e) = std::fs::write(&unit_path, unit_content) {
-        eprintln!("Falha ao gravar arquivo de serviço: {}", e);
-        std::process::exit(1);
     }
-
-    let _ = std::process::Command::new("systemctl").args(["--user", "daemon-reload"]).status();
-    let _ = std::process::Command::new("systemctl").args(["--user", "enable", "--now", "bt-dell-audio"]).status();
-
-    println!("  {} Unidade systemd criada em: {}", "✓".green(), unit_path.display());
-    println!("  {} Serviço ativado e rodando em segundo plano!", "✓".green().bold());
 }

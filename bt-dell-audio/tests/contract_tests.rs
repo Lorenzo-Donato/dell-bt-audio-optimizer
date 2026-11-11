@@ -28,6 +28,14 @@ fn test_template_integrity_udev() {
 }
 
 #[test]
+fn test_template_integrity_systemd() {
+    let service = include_str!("../templates/systemd_user.service.template");
+    assert!(service.contains("Description=Dell Realtek Bluetooth Audio Sentinel & Optimizer"));
+    assert!(service.contains("ExecStart={{EXEC_PATH}} daemon"));
+    assert!(service.contains("WantedBy=default.target"));
+}
+
+#[test]
 fn test_path_sanitization_and_standards() {
     // Ensure all target paths are standard Linux absolute paths
     let modprobe_btusb = "/etc/modprobe.d/btusb.conf";
