@@ -27,8 +27,6 @@ pub struct SystemHealthReport {
 /// Strategy trait for individual system health audits.
 /// Adheres to Single Responsibility (SRP) and Open/Closed (OCP) principles.
 pub trait HealthCheck: Send + Sync {
-    #[allow(dead_code)]
-    fn name(&self) -> &'static str;
     fn check(&self) -> HealthMetric;
 }
 
@@ -40,10 +38,6 @@ pub trait HealthCheck: Send + Sync {
 pub struct KernelResetSafetyCheck;
 
 impl HealthCheck for KernelResetSafetyCheck {
-    fn name(&self) -> &'static str {
-        "Kernel btusb.reset Parameter Check"
-    }
-
     fn check(&self) -> HealthMetric {
         let reset_param = fs::read_to_string("/sys/module/btusb/parameters/reset")
             .unwrap_or_default()
@@ -74,10 +68,6 @@ impl HealthCheck for KernelResetSafetyCheck {
 pub struct MemoryPressureCheck;
 
 impl HealthCheck for MemoryPressureCheck {
-    fn name(&self) -> &'static str {
-        "Memory Pressure Check"
-    }
-
     fn check(&self) -> HealthMetric {
         let (mem_total, mem_avail) = read_mem_info();
         if mem_total == 0 {
@@ -117,10 +107,6 @@ impl HealthCheck for MemoryPressureCheck {
 pub struct CpuLoadCheck;
 
 impl HealthCheck for CpuLoadCheck {
-    fn name(&self) -> &'static str {
-        "CPU Load Average Check"
-    }
-
     fn check(&self) -> HealthMetric {
         let load1_str = fs::read_to_string("/proc/loadavg")
             .ok()
@@ -154,10 +140,6 @@ impl HealthCheck for CpuLoadCheck {
 pub struct AudioServicesCheck;
 
 impl HealthCheck for AudioServicesCheck {
-    fn name(&self) -> &'static str {
-        "Audio Services Daemon Check"
-    }
-
     fn check(&self) -> HealthMetric {
         let (pw_active, wp_active) = check_audio_services();
         let status = if !pw_active || !wp_active {
@@ -193,7 +175,7 @@ pub struct HealthDoctor {
 }
 
 impl HealthDoctor {
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn new() -> Self {
         Self { checks: Vec::new() }
     }
@@ -209,7 +191,7 @@ impl HealthDoctor {
         }
     }
 
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn register(&mut self, check: Box<dyn HealthCheck>) {
         self.checks.push(check);
     }
@@ -289,9 +271,6 @@ mod tests {
     }
 
     impl HealthCheck for MockCheck {
-        fn name(&self) -> &'static str {
-            "Mock Check"
-        }
         fn check(&self) -> HealthMetric {
             HealthMetric {
                 name: "Mock Metric".to_string(),

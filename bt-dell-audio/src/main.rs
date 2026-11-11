@@ -8,6 +8,7 @@ mod ui;
 
 use clap::{Parser, Subcommand};
 use colored::*;
+use domain::sanitizer;
 use service::{fixer, history, installer, rollback, sentinel, system_tuner};
 use ui::prompts;
 
@@ -103,10 +104,11 @@ fn handle_checkup(save: bool, anonymize: bool) {
     if save {
         match history::save_snapshot(&report, anonymize) {
             Ok(path) => {
+                let display_path = sanitizer::sanitize_path_string(&path.display().to_string());
                 println!(
                     "  {} Snapshot de diagnóstico salvo com segurança (0600) em: {}",
                     "✓".green(),
-                    path.display().to_string().cyan()
+                    display_path.cyan()
                 );
             }
             Err(e) => {
@@ -145,7 +147,7 @@ fn handle_fix(auto_yes: bool, dry_run: bool) {
     if dry_run {
         println!("{}", "[DRY-RUN] Nenhuma alteração real será feita no disco.".yellow().bold());
         let conf_path = audio::wireplumber::get_wireplumber_config_path().unwrap_or_default();
-        println!("  - Alvo WirePlumber: {}", conf_path.display());
+        println!("  - Alvo WirePlumber: {}", sanitizer::sanitize_path_string(&conf_path.display().to_string()));
         println!("  - Volume AVRCP: será desativado");
         println!("  - Codecs: será priorizado SBC/AAC");
         return;
@@ -158,7 +160,8 @@ fn handle_fix(auto_yes: bool, dry_run: bool) {
 
     match fixer::execute_audio_stabilization() {
         Ok(summary) => {
-            println!("  {} Configuração gravada em: {}", "✓".green(), summary.config_written_path.display());
+            let config_disp = sanitizer::sanitize_path_string(&summary.config_written_path.display().to_string());
+            println!("  {} Configuração gravada em: {}", "✓".green(), config_disp);
             for dev in summary.devices_adjusted {
                 println!("  {} Dispositivo ajustado: {}", "✓".green(), dev);
             }
@@ -187,9 +190,21 @@ fn handle_rollback(auto_yes: bool) {
             } else {
                 println!("  {} Nenhuma alteração anterior encontrada no WirePlumber.", "ℹ".blue());
             }
-            println!("\n{}", "✓ Rollback em espaço de usuário concluído com sucesso!".green().bold());
-            println!("\nSe você também aplicou configurações de Kernel/Udev com sudo, execute:");
-            println!("  {}\n", "sudo ./scripts/rollback.sh".bold().cyan());
+
+            if res.service_uninstalled {
+                println!("  {} Unidade systemd de usuário desativada e removida.", "✓".green());
+            }
+
+            if hardware::os::is_running_as_root() {
+                if system_tuner::rollback_system_configurations().is_ok() {
+                    println!("  {} Regras de Kernel e UDEV em /etc removidas com sucesso.", "✓".green());
+                }
+            } else {
+                println!("\nSe você também aplicou configurações de Kernel/Udev com sudo, execute:");
+                println!("  {}\n", "sudo ./scripts/rollback.sh".bold().cyan());
+            }
+
+            println!("\n{}", "✓ Rollback concluído com sucesso!".green().bold());
         }
         Err(err) => {
             eprintln!("{} {}", "Erro durante o rollback:".red().bold(), err);
@@ -228,7 +243,8 @@ fn handle_install_service() {
 
     match installer::install_user_service() {
         Ok(unit_path) => {
-            println!("  {} Unidade systemd criada em: {}", "✓".green(), unit_path.display());
+            let unit_disp = sanitizer::sanitize_path_string(&unit_path.display().to_string());
+            println!("  {} Unidade systemd criada em: {}", "✓".green(), unit_disp);
             println!("  {} Serviço ativado e rodando em segundo plano!", "✓".green().bold());
         }
         Err(err) => {

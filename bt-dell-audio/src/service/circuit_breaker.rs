@@ -67,12 +67,7 @@ impl CircuitBreaker {
         }
     }
 
-    #[allow(dead_code)]
-    pub fn is_tripped(&self) -> bool {
-        matches!(self.state, CircuitState::Open)
-    }
-
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn state(&self) -> CircuitState {
         self.state
     }

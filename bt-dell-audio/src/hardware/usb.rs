@@ -7,7 +7,6 @@ use crate::domain::{AppError, AppResult, PowerControlState};
 pub struct UsbDeviceMatch {
     pub vendor_id: String,
     pub product_id: String,
-    #[allow(dead_code)]
     pub product_name: String,
     pub sysfs_path: PathBuf,
     pub power_control: PowerControlState,
@@ -91,11 +90,6 @@ pub fn find_bluetooth_usb_device() -> Option<UsbDeviceMatch> {
     }
 
     None
-}
-
-/// Backwards-compatible alias for existing callers
-pub fn find_realtek_bluetooth_device() -> Option<UsbDeviceMatch> {
-    find_bluetooth_usb_device()
 }
 
 pub fn read_btusb_module_autosuspend() -> Option<bool> {

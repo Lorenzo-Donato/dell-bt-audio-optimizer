@@ -34,7 +34,6 @@ pub fn mask_ssid(ssid: &str) -> String {
 
 /// Sanitizes absolute filesystem paths by replacing local usernames with a generic token.
 /// (e.g., "/home/username/projects" -> "~/.../projects" or "/home/[USER]/projects")
-#[allow(dead_code)]
 pub fn sanitize_path_string(path_str: &str) -> String {
     if let Ok(home) = std::env::var("HOME")
         && path_str.starts_with(&home)

@@ -1,11 +1,6 @@
-#![allow(dead_code)]
-
 pub mod symbols {
     pub const CHECK: &str = "✓";
-    pub const WARN: &str = "⚠";
-    pub const ERROR: &str = "✖";
     pub const BULLET: &str = "•";
-    pub const ARROW: &str = "→";
 }
 
 pub mod borders {

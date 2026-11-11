@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 //! Compile-time embedded configuration templates.
 //! Prevents bloating of business logic files and guarantees self-contained binaries.
 

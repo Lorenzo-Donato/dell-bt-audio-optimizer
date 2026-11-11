@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 //! Centralized configuration constants for hardware identifiers, system paths,
 //! timeouts, and audio defaults. No magic numbers or magic strings in business logic.
 
@@ -11,11 +9,8 @@ pub mod hardware {
     pub const REALTEK_WIFI_PCI_ID: &str = "10ec:c821";
     pub const REALTEK_WIFI_DRIVER_NAME: &str = "rtw88_8821ce";
 
-    pub const USB_POWER_CONTROL_AUTO: &str = "auto";
     pub const USB_POWER_CONTROL_ON: &str = "on";
-
     pub const KERNEL_PARAM_TRUE: &str = "Y";
-    pub const KERNEL_PARAM_FALSE: &str = "N";
 }
 
 pub mod paths {
@@ -42,9 +37,8 @@ pub mod paths {
 
 pub mod audio {
     pub const CODEC_SBC: &str = "a2dp-sink-sbc";
-    pub const CODEC_SBC_XQ: &str = "a2dp-sink-sbc_xq";
     pub const CODEC_AAC: &str = "a2dp-sink";
-    pub const CODEC_FALLBACK_ORDER: [&str; 2] = ["a2dp-sink-sbc", "a2dp-sink"];
+    pub const CODEC_FALLBACK_ORDER: [&str; 2] = [CODEC_SBC, CODEC_AAC];
 
     pub const BLUEZ_CARD_PREFIX: &str = "bluez_card.";
     pub const BLUEZ_OUTPUT_PREFIX: &str = "bluez_output.";
@@ -55,5 +49,4 @@ pub mod timing {
     pub const DAEMON_POLL_INTERVAL: Duration = Duration::from_secs(5);
     pub const WATCH_REFRESH_INTERVAL: Duration = Duration::from_secs(2);
     pub const SERVICE_RELOAD_DELAY: Duration = Duration::from_millis(500);
-    pub const BLUETOOTH_SETTLE_DELAY: Duration = Duration::from_millis(300);
 }

@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -12,14 +10,6 @@ pub enum PowerControlState {
 impl PowerControlState {
     pub fn is_power_saving_active(&self) -> bool {
         matches!(self, PowerControlState::Auto)
-    }
-
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            PowerControlState::Auto => "auto",
-            PowerControlState::On => "on",
-            PowerControlState::Unknown => "unknown",
-        }
     }
 }
 
@@ -66,10 +56,6 @@ pub enum BluetoothCodec {
 impl BluetoothCodec {
     pub fn is_high_bandwidth_risk(&self) -> bool {
         matches!(self, BluetoothCodec::SbcXq)
-    }
-
-    pub fn is_recommended_for_stability(&self) -> bool {
-        matches!(self, BluetoothCodec::Aac | BluetoothCodec::Sbc)
     }
 
     pub fn display_name(&self) -> &'static str {

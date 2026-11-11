@@ -11,17 +11,31 @@ pub fn run_full_diagnosis() -> DiagnosticReport {
     let os_name = os::read_os_pretty_name();
     let kernel_version = os::read_kernel_version();
 
-    let usb_match = usb::find_realtek_bluetooth_device();
+    let usb_match = usb::find_bluetooth_usb_device();
     let btusb_module_autosuspend = usb::read_btusb_module_autosuspend();
     let rtw88_lps_deep_disabled = pci::read_rtw88_lps_deep_disabled();
     let rtw88_aspm_disabled = pci::read_rtw88_aspm_disabled();
 
+    let (bt_usb_id, bt_name) = match &usb_match {
+        Some(m) => (
+            format!("{}:{} ({})", m.vendor_id, m.product_id, m.product_name),
+            m.product_name.clone(),
+        ),
+        None => (
+            "Nenhum controlador Bluetooth detectado".to_string(),
+            "N/A".to_string(),
+        ),
+    };
+
+    let wifi_driver = pci::get_wifi_driver_name();
+    let wifi_name = format!("Placa Wi-Fi ({})", wifi_driver);
+
     let hardware = HardwareInfo {
         wifi_pci_id: pci::get_wifi_pci_identifier(),
-        wifi_name: "Realtek RTL8821CE 802.11ac PCIe Wireless".to_string(),
-        wifi_driver: pci::get_wifi_driver_name(),
-        bt_usb_id: "0bda:c829 (Realtek Bluetooth Radio)".to_string(),
-        bt_name: "Realtek Semiconductor Corp. Bluetooth Radio".to_string(),
+        wifi_name,
+        wifi_driver,
+        bt_usb_id,
+        bt_name,
         bt_usb_sysfs_path: usb_match.as_ref().map(|m| m.sysfs_path.clone()),
         bt_power_control: usb_match.as_ref().map(|m| m.power_control).unwrap_or(crate::domain::PowerControlState::Unknown),
         bt_autosuspend_delay_ms: usb_match.as_ref().and_then(|m| m.autosuspend_delay_ms),

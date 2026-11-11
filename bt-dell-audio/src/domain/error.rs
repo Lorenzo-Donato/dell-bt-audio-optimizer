@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use std::path::PathBuf;
 use thiserror::Error;
 
@@ -16,12 +14,6 @@ pub enum AppError {
 
     #[error("Falha ao executar o comando '{command}': {details}")]
     CommandExecution {
-        command: String,
-        details: String,
-    },
-
-    #[error("Falha ao analisar a saída de '{command}': {details}")]
-    ParseError {
         command: String,
         details: String,
     },

@@ -48,7 +48,6 @@ pub fn apply_system_configurations() -> AppResult<()> {
     Ok(())
 }
 
-#[allow(dead_code)]
 pub fn rollback_system_configurations() -> AppResult<()> {
     if !os::is_running_as_root() {
         return Err(AppError::PermissionDenied);
