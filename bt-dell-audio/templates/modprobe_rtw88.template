@@ -1,0 +1,3 @@
+# Previne suspensão agressiva da placa combo Realtek RTL8821CE
+options rtw88_pci disable_aspm=y
+options rtw88_core disable_lps_deep=y

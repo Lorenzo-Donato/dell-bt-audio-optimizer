@@ -1,0 +1,3 @@
+# Desativa autosuspend nativo do kernel para controladores Bluetooth USB
+# IMPORTANTE: reset=0 desativa o reset forçado de hardware que causa deadlocks no controlador xHCI
+options btusb enable_autosuspend=n reset=0
