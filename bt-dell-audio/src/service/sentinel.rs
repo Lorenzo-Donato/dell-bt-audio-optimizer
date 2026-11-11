@@ -6,13 +6,13 @@ use crate::hardware::usb;
 use crate::service::circuit_breaker::CircuitBreaker;
 use crate::ui::console;
 
-pub fn start_interactive_watch_loop() {
+pub fn start_interactive_watch_loop(anonymize: bool) {
     loop {
         // Clear screen with standard ANSI escape
         print!("\x1B[2J\x1B[1;1H");
 
         let report = run_full_diagnosis();
-        console::render_dashboard(&report);
+        console::render_dashboard(&report, anonymize);
 
         sleep(timing::WATCH_REFRESH_INTERVAL);
     }
@@ -35,8 +35,8 @@ pub fn start_background_daemon() {
             continue;
         }
 
-        // 1. Maintain USB power control in 'on' state if writable (safely caught)
-        if let Some(dev) = usb::find_realtek_bluetooth_device()
+        // 1. Maintain USB power control in 'on' state on dynamically discovered Bluetooth controller
+        if let Some(dev) = usb::find_bluetooth_usb_device()
             && dev.power_control.is_power_saving_active()
         {
             if let Err(e) = usb::set_usb_power_control_on(&dev.sysfs_path) {

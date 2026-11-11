@@ -1,12 +1,17 @@
 use colored::*;
 use crate::audio::wireplumber;
-use crate::domain::{DiagnosticReport, IssueSeverity, PowerControlState};
+use crate::domain::{sanitizer, DiagnosticReport, IssueSeverity, PowerControlState};
+use crate::service::history::DiagnosticSnapshot;
 use super::theme::{borders, symbols};
 
-pub fn render_checkup_report(report: &DiagnosticReport) {
+pub fn render_checkup_report(report: &DiagnosticReport, anonymize: bool) {
     println!("\n{}", borders::TOP.cyan().bold());
     println!("{}", "║        CHECKUP COMPLETO DE ÁUDIO, BLUETOOTH E WI-FI (DELL)        ║".cyan().bold());
     println!("{}", borders::BOTTOM.cyan().bold());
+
+    if anonymize {
+        println!("  {}", "[PRIVACY SHIELD ATIVO] Identificadores físicos (MAC, SSID) anonimizados para compartilhamento seguro.".bright_black().italic());
+    }
 
     // 1. OS & Kernel
     println!("\n{}", "─── 1. SISTEMA OPERACIONAL & KERNEL ───".white().bold());
@@ -36,7 +41,12 @@ pub fn render_checkup_report(report: &DiagnosticReport) {
     // 3. Wi-Fi
     println!("\n{}", "─── 3. REDE WI-FI & COEXISTÊNCIA DE RÁDIO ───".white().bold());
     if let Some(w) = &report.wifi {
-        println!("  {:<25} {}", "Rede Conectada (SSID):".bright_black(), w.ssid.cyan().bold());
+        let ssid_display = if anonymize {
+            sanitizer::mask_ssid(&w.ssid)
+        } else {
+            w.ssid.clone()
+        };
+        println!("  {:<25} {}", "Rede Conectada (SSID):".bright_black(), ssid_display.cyan().bold());
         let band_disp = if w.band.is_coexistence_hazard() {
             format!("{} (CRÍTICO - Colide diretamente com Bluetooth)", w.band.as_str()).red().bold()
         } else {
@@ -57,7 +67,13 @@ pub fn render_checkup_report(report: &DiagnosticReport) {
         println!("  {}", "Nenhum fone/dispositivo Bluetooth conectado no momento.".yellow());
     } else {
         for dev in &report.bluetooth_devices {
-            println!("  {} {} [{}]", symbols::BULLET.cyan(), dev.name.cyan().bold(), dev.mac_address.bright_black());
+            let mac_display = if anonymize {
+                sanitizer::mask_mac_address(&dev.mac_address)
+            } else {
+                dev.mac_address.clone()
+            };
+
+            println!("  {} {} [{}]", symbols::BULLET.cyan(), dev.name.cyan().bold(), mac_display.bright_black());
             if let Some(bat) = dev.battery_percentage {
                 println!("    Bateria: {}%", bat);
             }
@@ -105,7 +121,7 @@ pub fn render_checkup_report(report: &DiagnosticReport) {
     }
 }
 
-pub fn render_dashboard(report: &DiagnosticReport) {
+pub fn render_dashboard(report: &DiagnosticReport, anonymize: bool) {
     println!("{}", borders::DOUBLE_DIVIDER.cyan());
     println!("{}", "      SENTINELA DE ÁUDIO & BLUETOOTH - MONITOR EM TEMPO REAL       ".cyan().bold());
     println!("{}", borders::DOUBLE_DIVIDER.cyan());
@@ -119,7 +135,8 @@ pub fn render_dashboard(report: &DiagnosticReport) {
 
     if let Some(w) = &report.wifi {
         let band_color = if w.band.is_coexistence_hazard() { "2.4 GHz".red() } else { "5 GHz".green() };
-        print!("| Wi-Fi: {} ({}) ", w.ssid.cyan(), band_color);
+        let ssid_disp = if anonymize { sanitizer::mask_ssid(&w.ssid) } else { w.ssid.clone() };
+        print!("| Wi-Fi: {} ({}) ", ssid_disp.cyan(), band_color);
     }
 
     println!();
@@ -168,6 +185,41 @@ pub fn render_health_report(report: &crate::service::health::SystemHealthReport)
         if let Some(rec) = &m.recommendation {
             println!("      Ação:      {}", rec.cyan().bold());
         }
+        println!();
+    }
+}
+
+pub fn render_history_list(snapshots: &[DiagnosticSnapshot]) {
+    println!("\n{}", borders::TOP.cyan().bold());
+    println!("{}", "║          HISTÓRICO LOCAL DE DIAGNÓSTICOS & COMPARATIVOS            ║".cyan().bold());
+    println!("{}", borders::BOTTOM.cyan().bold());
+
+    if snapshots.is_empty() {
+        println!("  {}", "Nenhum relatório local armazenado no momento.".yellow());
+        println!("  Execute 'bt-dell-audio checkup --save' para gerar um snapshot comparativo.\n");
+        return;
+    }
+
+    println!("  Total de relatórios armazenados (política máx. 5 snapshots / 7 dias): {}\n", snapshots.len());
+
+    for (i, snap) in snapshots.iter().enumerate() {
+        let status_tag = if snap.has_critical {
+            "CRÍTICO".red().bold()
+        } else if snap.issues_count > 0 {
+            "ALERTA".yellow().bold()
+        } else {
+            "ESTÁVEL".green().bold()
+        };
+
+        println!(
+            "  [{}] [{}] {} ({} problemas detectados)",
+            i + 1,
+            status_tag,
+            snap.date_formatted.cyan().bold(),
+            snap.issues_count
+        );
+        println!("      Arquivo:   {}", snap.filename.bright_black());
+        println!("      Sistema:   {} ({})", snap.os_name, snap.kernel_version.bright_black());
         println!();
     }
 }

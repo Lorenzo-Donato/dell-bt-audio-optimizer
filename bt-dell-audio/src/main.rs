@@ -8,16 +8,16 @@ mod ui;
 
 use clap::{Parser, Subcommand};
 use colored::*;
-use service::{fixer, installer, rollback, sentinel, system_tuner};
+use service::{fixer, history, installer, rollback, sentinel, system_tuner};
 use ui::prompts;
 
 #[derive(Parser)]
 #[command(name = "bt-dell-audio")]
 #[command(author = "Lorenzo & Antigravity")]
-#[command(version = "2.1")]
+#[command(version = "2.2")]
 #[command(
-    about = "Engine modular de estabilização e rollback de áudio Bluetooth para Linux (Dell Realtek)",
-    long_about = "bt-dell-audio é um utilitário de engenharia de áudio projetado para eliminar oscilações de ganho, descompasso TWS e engasgos de áudio em chips combo Realtek RTL8821CE com fones JBL Wave Beam 2 no Linux PipeWire."
+    about = "Engine modular de estabilização, privacidade e rollback de áudio Bluetooth para Linux",
+    long_about = "bt-dell-audio é um utilitário de engenharia de áudio projetado para eliminar oscilações de ganho, descompasso TWS e engasgos de áudio em chips combo Wi-Fi/Bluetooth com fones TWS no Linux PipeWire."
 )]
 struct Cli {
     #[command(subcommand)]
@@ -30,12 +30,20 @@ struct Cli {
     /// Simula as alterações sem gravar nenhum arquivo em disco
     #[arg(long = "dry-run", global = true)]
     dry_run: bool,
+
+    /// Mascara identificadores sensíveis (MACs, SSIDs, caminhos) na saída para compartilhamento seguro
+    #[arg(short = 'a', long = "anonymize", global = true)]
+    anonymize: bool,
 }
 
 #[derive(Subcommand)]
 enum Commands {
     /// Executa o diagnóstico completo de hardware, drivers, Wi-Fi e PipeWire
-    Checkup,
+    Checkup {
+        /// Salva um snapshot de diagnóstico no histórico local para comparativos
+        #[arg(short = 's', long = "save")]
+        save: bool,
+    },
 
     /// Executa o checkup de saúde do sistema, memória, carga e integridade do barramento USB
     Doctor,
@@ -52,6 +60,12 @@ enum Commands {
     /// Abre o painel interativo de telemetria em tempo real
     Watch,
 
+    /// Exibe os snapshots locais anteriores para comparação e auditoria
+    History,
+
+    /// Limpa imediatamente todos os relatórios e arquivos temporários (zero pegada em disco)
+    Clean,
+
     /// Executa o sentinela em segundo plano com auto-cura contínua
     Daemon,
 
@@ -63,12 +77,15 @@ fn main() {
     let cli = Cli::parse();
 
     match cli.command {
-        Some(Commands::Checkup) | None => handle_checkup(),
+        Some(Commands::Checkup { save }) => handle_checkup(save, cli.anonymize),
+        None => handle_checkup(false, cli.anonymize),
         Some(Commands::Doctor) => handle_doctor(),
         Some(Commands::Fix) => handle_fix(cli.yes, cli.dry_run),
         Some(Commands::Rollback) => handle_rollback(cli.yes),
         Some(Commands::SysTune) => handle_systune(cli.yes),
-        Some(Commands::Watch) => sentinel::start_interactive_watch_loop(),
+        Some(Commands::Watch) => sentinel::start_interactive_watch_loop(cli.anonymize),
+        Some(Commands::History) => handle_history(),
+        Some(Commands::Clean) => handle_clean(),
         Some(Commands::Daemon) => sentinel::start_background_daemon(),
         Some(Commands::InstallService) => handle_install_service(),
     }
@@ -79,12 +96,46 @@ fn handle_doctor() {
     ui::console::render_health_report(&report);
 }
 
-fn handle_checkup() {
+fn handle_checkup(save: bool, anonymize: bool) {
     let report = diagnostics::run_full_diagnosis();
-    ui::console::render_checkup_report(&report);
+    ui::console::render_checkup_report(&report, anonymize);
+
+    if save {
+        match history::save_snapshot(&report, anonymize) {
+            Ok(path) => {
+                println!(
+                    "  {} Snapshot de diagnóstico salvo com segurança (0600) em: {}",
+                    "✓".green(),
+                    path.display().to_string().cyan()
+                );
+            }
+            Err(e) => {
+                eprintln!("  {} Falha ao gravar snapshot: {}", "!".yellow(), e);
+            }
+        }
+    }
 
     if report.has_critical_issues() {
         println!("{}", "Sugestão imediata: Execute 'bt-dell-audio fix' para estabilizar seu áudio.".yellow());
+    }
+}
+
+fn handle_history() {
+    let snapshots = history::list_history();
+    ui::console::render_history_list(&snapshots);
+}
+
+fn handle_clean() {
+    println!("{}", "===> Coletor de Lixo & Higienização de Privacidade <===".cyan().bold());
+    match history::clean_all_history() {
+        Ok(count) => {
+            println!("  {} {} relatório(s) local(is) removido(s) com sucesso.", "✓".green(), count);
+            println!("  {} Nenhum dado diagnóstico ou histórico retido em disco.\n", "✓".green().bold());
+        }
+        Err(e) => {
+            eprintln!("{} {}", "Erro ao limpar histórico:".red().bold(), e);
+            std::process::exit(1);
+        }
     }
 }
 
