@@ -26,6 +26,9 @@ pub enum AppError {
         details: String,
     },
 
+    #[error("Falha ao serializar/desserializar dados: {0}")]
+    Serialization(String),
+
     #[error("Permissão insuficiente: Esta operação exige privilégios de superusuário (root)")]
     PermissionDenied,
 }

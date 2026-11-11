@@ -4,7 +4,8 @@ After=pipewire.service wireplumber.service
 
 [Service]
 Type=simple
-ExecStart=/home/lorenzo/corrigir_audio/bin/bt-dell-audio daemon
+# Tip: Executing 'bt-dell-audio install-service' automatically detects and links your exact binary path
+ExecStart=%h/.local/bin/bt-dell-audio daemon
 Restart=always
 RestartSec=5
 

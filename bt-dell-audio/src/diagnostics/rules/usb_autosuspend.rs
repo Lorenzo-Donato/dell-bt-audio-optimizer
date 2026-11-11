@@ -10,7 +10,7 @@ impl DiagnosticRule for UsbAutosuspendRule {
                 severity: IssueSeverity::Critical,
                 title: "USB Autosuspend ativo no controlador Bluetooth (0bda:c829)".to_string(),
                 description: "O Linux suspende o rádio Bluetooth a cada intervalo ocioso, gerando atraso na entrega de pacotes, micro-cortes e desincronização entre os fones L e R.".to_string(),
-                remediation: "Execute 'sudo /home/lorenzo/corrigir_audio/scripts/apply-system-tuning.sh' para gravar regras definitivas em modprobe e udev.".to_string(),
+                remediation: "Execute 'sudo ./scripts/apply-system-tuning.sh' ou execute 'bt-dell-audio systune' para gravar regras definitivas em modprobe e udev.".to_string(),
             })
         } else {
             None
