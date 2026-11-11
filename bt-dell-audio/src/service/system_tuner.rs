@@ -1,6 +1,6 @@
 use std::fs;
 use std::process::Command;
-use crate::config::constants::paths;
+use crate::config::constants::{hardware, paths};
 use crate::config::templates::{MODPROBE_BTUSB_CONF, MODPROBE_RTW88_CONF, UDEV_BLUETOOTH_RULES};
 use crate::domain::{AppError, AppResult};
 use crate::hardware::{os, usb};
@@ -21,14 +21,23 @@ pub fn apply_system_configurations() -> AppResult<()> {
         source: e,
     })?;
 
-    // 2. Write udev rule
-    fs::write(paths::UDEV_RULE_PATH, UDEV_BLUETOOTH_RULES).map_err(|e| AppError::Io {
+    // 2. Dynamically bind UDEV rule to detected Bluetooth controller (with safe default fallback)
+    let (vendor, product) = match usb::find_bluetooth_usb_device() {
+        Some(dev) => (dev.vendor_id, dev.product_id),
+        None => (hardware::REALTEK_VENDOR_ID.to_string(), hardware::REALTEK_BT_PRODUCT_ID.to_string()),
+    };
+
+    let udev_content = UDEV_BLUETOOTH_RULES
+        .replace("{{VENDOR}}", &vendor)
+        .replace("{{PRODUCT}}", &product);
+
+    fs::write(paths::UDEV_RULE_PATH, udev_content).map_err(|e| AppError::Io {
         path: paths::UDEV_RULE_PATH.into(),
         source: e,
     })?;
 
     // 3. Immediately enforce power/control='on' on active device
-    if let Some(dev) = usb::find_realtek_bluetooth_device() {
+    if let Some(dev) = usb::find_bluetooth_usb_device() {
         let _ = usb::set_usb_power_control_on(&dev.sysfs_path);
     }
 

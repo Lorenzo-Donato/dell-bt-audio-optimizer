@@ -1,2 +1,2 @@
-# Desativa economia de energia em tempo de execução para Realtek Bluetooth (0bda:c829)
-ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="0bda", ATTR{idProduct}=="c829", ATTR{power/control}="on"
+# Desativa economia de energia em tempo de execução para Bluetooth USB ({{VENDOR}}:{{PRODUCT}})
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="{{VENDOR}}", ATTR{idProduct}=="{{PRODUCT}}", ATTR{power/control}="on"

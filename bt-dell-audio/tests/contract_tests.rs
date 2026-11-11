@@ -22,9 +22,14 @@ fn test_template_integrity_modprobe() {
 #[test]
 fn test_template_integrity_udev() {
     let udev = include_str!("../templates/udev_bluetooth.rules.template");
-    assert!(udev.contains("0bda"));
-    assert!(udev.contains("c829"));
+    assert!(udev.contains("{{VENDOR}}"));
+    assert!(udev.contains("{{PRODUCT}}"));
     assert!(udev.contains("power/control"));
+
+    // Test dynamic substitution works as expected
+    let rendered = udev.replace("{{VENDOR}}", "0bda").replace("{{PRODUCT}}", "c829");
+    assert!(rendered.contains("0bda"));
+    assert!(rendered.contains("c829"));
 }
 
 #[test]

@@ -1,7 +1,27 @@
+use std::fs;
 use std::process::Command;
 use crate::domain::{FrequencyBand, WifiInfo};
 
+/// Dynamically discovers the active wireless network interface name
+/// by querying /sys/class/net/ for interfaces with a 'wireless' or 'phy80211' directory.
+/// Adapts dynamically to wlan0, wlp2s0, wlo1, or any custom Linux network name.
+pub fn find_active_wifi_interface() -> String {
+    if let Ok(entries) = fs::read_dir("/sys/class/net") {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if (path.join("wireless").exists() || path.join("phy80211").exists())
+                && let Some(name) = path.file_name().and_then(|n| n.to_str())
+            {
+                return name.to_string();
+            }
+        }
+    }
+    "wlan0".to_string()
+}
+
 pub fn probe_active_wifi() -> Option<WifiInfo> {
+    let iface = find_active_wifi_interface();
+
     // nmcli tabular output without BSSID to prevent colon splitting
     let output = Command::new("nmcli")
         .args(["-t", "-m", "tabular", "-f", "IN-USE,SSID,CHAN,FREQ,RATE,SIGNAL,SECURITY", "dev", "wifi"])
@@ -9,10 +29,10 @@ pub fn probe_active_wifi() -> Option<WifiInfo> {
         .ok()?;
 
     let text = String::from_utf8_lossy(&output.stdout);
-    text.lines().find_map(parse_nmcli_line)
+    text.lines().find_map(|line| parse_nmcli_line(line, &iface))
 }
 
-fn parse_nmcli_line(line: &str) -> Option<WifiInfo> {
+fn parse_nmcli_line(line: &str, iface: &str) -> Option<WifiInfo> {
     if !line.starts_with('*') {
         return None;
     }
@@ -45,10 +65,10 @@ fn parse_nmcli_line(line: &str) -> Option<WifiInfo> {
         FrequencyBand::Unknown
     };
 
-    let powersave_enabled = check_powersave("wlan0");
+    let powersave_enabled = check_powersave(iface);
 
     Some(WifiInfo {
-        interface: "wlan0".to_string(),
+        interface: iface.to_string(),
         ssid,
         band,
         channel,
@@ -77,17 +97,18 @@ mod tests {
     #[test]
     fn test_parse_nmcli_line_valid_5ghz() {
         let sample = "*:MiFibra-5G:36:5180 MHz:540 Mbit/s:78:WPA2";
-        let info = parse_nmcli_line(sample).expect("Deve parsear linha 5GHz");
+        let info = parse_nmcli_line(sample, "wlan0").expect("Deve parsear linha 5GHz");
         assert_eq!(info.ssid, "MiFibra-5G");
         assert_eq!(info.channel, 36);
         assert_eq!(info.frequency_mhz, 5180);
         assert_eq!(info.band, FrequencyBand::FiveGHz);
         assert_eq!(info.signal_percent, 78);
+        assert_eq!(info.interface, "wlan0");
     }
 
     #[test]
     fn test_parse_nmcli_line_not_in_use() {
         let sample = " :OutraRede:6:2437 MHz:54 Mbit/s:40:WPA2";
-        assert!(parse_nmcli_line(sample).is_none());
+        assert!(parse_nmcli_line(sample, "wlan0").is_none());
     }
 }
